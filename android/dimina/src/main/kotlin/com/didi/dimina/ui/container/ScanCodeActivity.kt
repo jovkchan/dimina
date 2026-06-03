@@ -10,7 +10,6 @@ import android.graphics.Rect
 import android.graphics.YuvImage
 import android.os.Build
 import android.os.Bundle
-import android.util.Size
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -145,7 +144,7 @@ class ScanCodeActivity : ComponentActivity() {
             val cameraProvider = cameraProviderFuture.get()
             val preview = Preview.Builder().build()
             val imageAnalysis = ImageAnalysis.Builder()
-                .setTargetResolution(Size(1280, 960))
+                .setTargetResolution(android.util.Size(1280, 960))
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                 .build()
                 .also { analysis ->

@@ -33,7 +33,7 @@ class ScanCodeHandler(private val activity: ComponentActivity) {
     private val cameraPermissionLauncher: ActivityResultLauncher<String> =
         activity.registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             if (granted) {
-                launchScanCode(pendingConfig)
+                launchScanCode(config = pendingConfig)
             } else {
                 scanCallback?.invoke(false, JSONObject().apply {
                     put("errMsg", "scanCode:fail Camera permission denied")
