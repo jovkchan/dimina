@@ -55,4 +55,9 @@
 <button type="primary" bindtap="vibrateLong">vibrateLong</button>
 
 <button type="primary" bindtap="showActionSheet">showActionSheet</button>
-<button type="primary" bindtap="scanCode">scanCode</button>
+
+<!-- scanCode 基础示例 -->
+<button type="primary" bindtap="scanCodeBasic">scanCode 基础</button>
+<button type="primary" bindtap="scanCodeCustomUI">scanCode 自定义UI</button>
+<button type="primary" bindtap="scanCodeOnlyCamera">scanCode 仅相机</button>
+<button type="primary" bindtap="scanCodeWithAlbum">scanCode 含相册</button>

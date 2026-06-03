@@ -187,6 +187,7 @@ DMPApp.init(context, { apiNamespaces: ["myapp"] })
 | 媒体 - 视频   | chooseMedia                      | ✓       | ✓   | ✓       | ✗   |
 | 设备 - 联系人 | chooseContact                    | ✓       | ✓   | ✓       | ✗   |
 |               | addPhoneContact                  | ✓       | ✓   | ✓       | ✗   |
+| 设备 - 扫码   | scanCode                         | ✓       | □   | ✓       | ✗   |
 | 设备 - 剪贴板 | setClipboardData                 | ✓       | ✓   | ✓       | ✓   |
 |               | getClipboardData                 | ✓       | ✓   | ✓       | ✓   |
 | 设备 - 震动   | vibrateShort                     | ✓       | ✓   | ✓       | ✗   |

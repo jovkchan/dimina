@@ -415,11 +415,98 @@ Page({
       }
     })
   },
-  scanCode: function() {
+  // ===== scanCode 扫码示例 =====
+
+  /**
+   * 基础扫码 — 使用默认 UI
+   */
+  scanCodeBasic: function () {
     wx.scanCode({
-      success (res) {
-        console.log(res)
-      }
+      success(res) {
+        console.log('[scanCode] result:', res.result)
+        console.log('[scanCode] scanType:', res.scanType)
+        console.log('[scanCode] charSet:', res.charSet)
+        wx.showModal({
+          title: '扫码结果',
+          content: '内容：' + res.result + '\n类型：' + res.scanType,
+          showCancel: false,
+        })
+      },
+      fail(err) {
+        console.log('[scanCode] fail:', err.errMsg)
+        wx.showToast({ title: '扫码取消', icon: 'none' })
+      },
     })
-  }
+  },
+
+  /**
+   * 自定义 UI 扫码 — 自定义标题、颜色、提示文案
+   */
+  scanCodeCustomUI: function () {
+    wx.scanCode({
+      title: '自定义扫码',
+      titleColor: '#FF5722',
+      hint: '请将条码对准框内',
+      hintColor: '#FFCCBC',
+      frameColor: '#FF5722',
+      cornerColor: '#FF5722',
+      albumText: '选图识别条码',
+      albumTextColor: '#FF5722',
+      backText: '取消',
+      backTextColor: '#FFFFFF',
+      success(res) {
+        console.log('[scanCode-custom] result:', res.result)
+        wx.showModal({
+          title: '自定义扫码',
+          content: '内容：' + res.result + '\n类型：' + res.scanType,
+          showCancel: false,
+        })
+      },
+      fail(err) {
+        console.log('[scanCode-custom] fail:', err.errMsg)
+      },
+    })
+  },
+
+  /**
+   * 仅相机扫码 — 禁止从相册选择
+   */
+  scanCodeOnlyCamera: function () {
+    wx.scanCode({
+      title: '仅相机扫码',
+      onlyFromCamera: true,
+      hint: '无法从相册选图',
+      success(res) {
+        wx.showModal({
+          title: '扫码结果',
+          content: '内容：' + res.result,
+          showCancel: false,
+        })
+      },
+      fail(err) {
+        console.log('[scanCode-onlyCamera] fail:', err.errMsg)
+      },
+    })
+  },
+
+  /**
+   * 含相册选图扫码
+   */
+  scanCodeWithAlbum: function () {
+    wx.scanCode({
+      title: '扫码（含相册）',
+      onlyFromCamera: false,
+      albumText: '从相册选条码',
+      success(res) {
+        wx.showModal({
+          title: '扫码结果',
+          content: '内容：' + res.result,
+          showCancel: false,
+        })
+      },
+      fail(err) {
+        console.log('[scanCode-album] fail:', err.errMsg)
+      },
+    })
+  },
 });

@@ -70,6 +70,18 @@ dependencies {
     implementation (libs.okhttp)
     implementation(libs.landscapist.coil)
     implementation (libs.ui.tooling)
+
+    // CameraX
+    implementation(libs.androidx.camera.core)
+    implementation(libs.androidx.camera.lifecycle)
+    implementation(libs.androidx.camera.view)
+
+    // ML Kit Barcode Scanning (Android 9+)
+    implementation(libs.mlkit.barcode.scanning)
+
+    // ZXing (Android < 9 备选)
+    implementation(libs.zxing.core)
+
     testImplementation(libs.junit)
     testImplementation(libs.org.json)
     androidTestImplementation(libs.androidx.junit)
