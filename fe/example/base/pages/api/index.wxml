@@ -60,6 +60,48 @@
 <button type="primary" bindtap="scanCodeBasic">scanCode 基础</button>
 <button type="primary" bindtap="scanCodeCustomUI">scanCode 自定义UI</button>
 <button type="primary" bindtap="scanCodeOnlyCamera">scanCode 仅相机</button>
+<button type="primary" bindtap="scanCodeCircleFrame">scanCode 圆形框 ⭕</button>
 <button type="primary" bindtap="scanCodeWithAlbum">scanCode 含相册</button>
 <button type="primary" bindtap="scanCodeContinuous">scanCode 连续扫码</button>
-<button type="primary" bindtap="scanCodeCustomFrame">scanCode 自定义扫描框</button>
+<button type="primary" bindtap="scanCodeSvgFrame">scanCode SVG 狐狸框 🦊</button>
+
+<!-- scanCode 扫码结果展示 -->
+<view class="scan-section">
+  <view class="scan-section-title">扫码结果演示</view>
+  
+  <!-- 最近一次扫码结果 -->
+  <view class="scan-result-card {{scanStatus === 'fail' ? 'fail' : ''}}" wx:if="{{scanResultText}}">
+    <view class="scan-result-label">
+      扫码结果
+      <text class="scan-badge {{scanStatus === 'ok' ? 'success' : 'fail'}}">{{scanStatus}}</text>
+      <text class="scan-badge success" wx:if="{{scanBatch}}">batch</text>
+    </view>
+    <view class="scan-result-value code">{{scanResultText}}</view>
+    <view class="scan-result-label">条码类型</view>
+    <view class="scan-result-value">{{scanType || '-'}}</view>
+    <view class="scan-result-label">字符编码</view>
+    <view class="scan-result-value">{{scanCharSet || '-'}}</view>
+    <view class="scan-result-label">来源</view>
+    <view class="scan-result-value">{{scanSource || '相机扫码'}}</view>
+  </view>
+
+  <view class="scan-result-card fail" wx:if="{{scanErrMsg}}">
+    <view class="scan-result-label">
+      扫码失败
+      <text class="scan-badge fail">fail</text>
+    </view>
+    <view class="scan-result-value">{{scanErrMsg}}</view>
+  </view>
+
+  <!-- 连续扫码结果列表 -->
+  <view wx:if="{{continuousResults && continuousResults.length > 0}}">
+    <view class="scan-result-label">连续扫码结果（共 {{continuousResults.length}} 个）</view>
+    <view class="scan-continuous-list">
+      <view class="scan-continuous-item" wx:for="{{continuousResults}}" wx:key="index">
+        <text class="scan-ci-index">{{index + 1}}.</text>
+        <text class="scan-ci-type">{{item.scanType}}</text>
+        <text class="scan-ci-text">{{item.result}}</text>
+      </view>
+    </view>
+  </view>
+</view>

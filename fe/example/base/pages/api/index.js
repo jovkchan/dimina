@@ -1,4 +1,16 @@
 Page({
+  data: {
+    // scanCode 扫码结果展示
+    scanStatus: '',
+    scanResultText: '',
+    scanType: '',
+    scanCharSet: '',
+    scanSource: '',
+    scanErrMsg: '',
+    scanBatch: false,
+    continuousResults: [],
+  },
+
   openSystemBluetoothSetting: function () {
     wx.openSystemBluetoothSetting({
       success(res) {
@@ -415,105 +427,180 @@ Page({
       }
     })
   },
-  // ===== scanCode 扫码示例 =====
+  // ============================================================
+  // scanCode 扫码 — 功能全覆盖演示
+  // ============================================================
+  // 所有结果回填到页面下方「扫码结果演示」区域，方便对照各参数效果
 
   /**
-   * 基础扫码 — 使用默认 UI
+   * 基础扫码 — 使用默认 UI，演示完整返回数据
    */
   scanCodeBasic: function () {
+    const that = this
     wx.scanCode({
       success(res) {
         console.log('[scanCode] result:', res.result)
         console.log('[scanCode] scanType:', res.scanType)
         console.log('[scanCode] charSet:', res.charSet)
-        wx.showModal({
-          title: '扫码结果',
-          content: '内容：' + res.result + '\n类型：' + res.scanType,
-          showCancel: false,
+        that.setData({
+          scanStatus: 'ok',
+          scanResultText: res.result,
+          scanType: res.scanType,
+          scanCharSet: res.charSet,
+          scanSource: '相机扫码（默认UI）',
+          scanErrMsg: '',
         })
       },
       fail(err) {
-        console.log('[scanCode] fail:', err.errMsg)
-        wx.showToast({ title: '扫码取消', icon: 'none' })
+        that.setData({
+          scanStatus: 'fail',
+          scanErrMsg: err.errMsg,
+          scanResultText: '',
+          scanType: '',
+          scanCharSet: '',
+        })
       },
     })
   },
 
   /**
-   * 自定义 UI 扫码 — 自定义标题、颜色、提示文案
+   * 自定义 UI 扫码 — 演示标题、颜色、方形扫描框等参数定制
    */
   scanCodeCustomUI: function () {
+    const that = this
     wx.scanCode({
-      title: '自定义扫码',
-      titleColor: '#FF5722',
-      hint: '请将条码对准框内',
-      hintColor: '#FFCCBC',
-      frameColor: '#FF5722',
-      cornerColor: '#FF5722',
-      albumText: '选图识别条码',
-      albumTextColor: '#FF5722',
+      title: '仓库扫码',
+      titleColor: '#FF6B35',
+      hint: '请将货物条码对准相机',
+      hintColor: '#FFD6C2',
+      frameColor: '#FF6B35',
+      cornerColor: '#FF6B35',
+      frameShape: 'square',
+      albumText: '选图识别',
+      albumTextColor: '#FF6B35',
       backText: '取消',
       backTextColor: '#FFFFFF',
       success(res) {
         console.log('[scanCode-custom] result:', res.result)
-        wx.showModal({
-          title: '自定义扫码',
-          content: '内容：' + res.result + '\n类型：' + res.scanType,
-          showCancel: false,
+        that.setData({
+          scanStatus: 'ok',
+          scanResultText: res.result,
+          scanType: res.scanType,
+          scanCharSet: res.charSet,
+          scanSource: '方形框（橙色主题）',
+          scanErrMsg: '',
         })
       },
       fail(err) {
-        console.log('[scanCode-custom] fail:', err.errMsg)
+        that.setData({
+          scanStatus: 'fail',
+          scanErrMsg: err.errMsg,
+          scanResultText: '',
+          scanType: '',
+          scanCharSet: '',
+        })
       },
     })
   },
 
   /**
-   * 仅相机扫码 — 禁止从相册选择
+   * 圆形扫描框 — frameShape='circle'，相机≤50%，下半部分展示结果
+   */
+  scanCodeCircleFrame: function () {
+    const that = this
+    wx.scanCode({
+      title: '圆形扫码',
+      hint: '圆形扫描区域',
+      frameShape: 'circle',
+      frameColor: '#FF6B35',
+      cornerColor: '#FF6B35',
+      onlyFromCamera: true,
+      success(res) {
+        console.log('[scanCode-circle] result:', res.result)
+        that.setData({
+          scanStatus: 'ok',
+          scanResultText: res.result,
+          scanType: res.scanType,
+          scanCharSet: res.charSet,
+          scanSource: '圆形框 ⭕',
+          scanErrMsg: '',
+        })
+      },
+      fail(err) {
+        that.setData({
+          scanStatus: 'fail',
+          scanErrMsg: err.errMsg,
+          scanResultText: '',
+          scanType: '',
+          scanCharSet: '',
+        })
+      },
+    })
+  },
+
+  /**
+   * 仅相机扫码 — onlyFromCamera=true，禁止从相册选图
    */
   scanCodeOnlyCamera: function () {
+    const that = this
     wx.scanCode({
-      title: '仅相机扫码',
+      title: '仅相机',
       onlyFromCamera: true,
       hint: '无法从相册选图',
       success(res) {
-        wx.showModal({
-          title: '扫码结果',
-          content: '内容：' + res.result,
-          showCancel: false,
+        console.log('[scanCode-onlyCamera] result:', res.result)
+        that.setData({
+          scanStatus: 'ok',
+          scanResultText: res.result,
+          scanType: res.scanType,
+          scanCharSet: res.charSet,
+          scanSource: '仅相机（无相册入口）',
+          scanErrMsg: '',
         })
       },
       fail(err) {
-        console.log('[scanCode-onlyCamera] fail:', err.errMsg)
+        that.setData({
+          scanStatus: 'fail',
+          scanErrMsg: err.errMsg,
+        })
       },
     })
   },
 
   /**
-   * 含相册选图扫码
+   * 含相册选图扫码 — onlyFromCamera=false，可从相册选择图片识别条码
    */
   scanCodeWithAlbum: function () {
+    const that = this
     wx.scanCode({
       title: '扫码（含相册）',
       onlyFromCamera: false,
-      albumText: '从相册选条码',
+      albumText: '从相册选择条码图片',
       success(res) {
-        wx.showModal({
-          title: '扫码结果',
-          content: '内容：' + res.result,
-          showCancel: false,
+        console.log('[scanCode-album] result:', res.result)
+        that.setData({
+          scanStatus: 'ok',
+          scanResultText: res.result,
+          scanType: res.scanType,
+          scanCharSet: res.charSet,
+          scanSource: '含相册选图',
+          scanErrMsg: '',
         })
       },
       fail(err) {
-        console.log('[scanCode-album] fail:', err.errMsg)
+        that.setData({
+          scanStatus: 'fail',
+          scanErrMsg: err.errMsg,
+        })
       },
     })
   },
 
   /**
-   * 连续扫码 — 不自动关闭，结果在扫码框下方实时显示
+   * 连续扫码 — continuous=true，同一码只记录一次，点"完成"返回全部结果
    */
   scanCodeContinuous: function () {
+    const that = this
     wx.scanCode({
       title: '连续扫码',
       continuous: true,
@@ -523,54 +610,94 @@ Page({
       onlyFromCamera: true,
       success(res) {
         if (res.batch) {
-          // 连续扫码返回批量结果
+          // 连续扫码批量结果
           const list = res.result
-          let msg = list.map(function (item, i) {
-            return (i + 1) + '. ' + item.result + ' (' + item.scanType + ')'
-          }).join('\n')
-          wx.showModal({
-            title: '连续扫码结果 (' + list.length + ' 个)',
-            content: msg,
-            showCancel: false,
+          that.setData({
+            scanStatus: 'ok',
+            scanBatch: true,
+            scanResultText: '共 ' + list.length + ' 个条码',
+            scanType: 'BATCH',
+            scanCharSet: res.charSet,
+            scanSource: '连续扫码',
+            scanErrMsg: '',
+            continuousResults: list.map(function (item) {
+              return { result: item.result, scanType: item.scanType }
+            }),
           })
         } else {
-          wx.showModal({
-            title: '扫码结果',
-            content: '内容：' + res.result,
-            showCancel: false,
+          // 单次结果
+          that.setData({
+            scanStatus: 'ok',
+            scanResultText: res.result,
+            scanType: res.scanType,
+            scanCharSet: res.charSet,
+            scanSource: '连续扫码（单次）',
+            scanErrMsg: '',
           })
         }
       },
       fail(err) {
-        console.log('[scanCode-continuous] fail:', err.errMsg)
-        if (err.errMsg !== 'scanCode:fail cancel') {
-          wx.showToast({ title: '扫码中断', icon: 'none' })
-        }
+        that.setData({
+          scanStatus: 'fail',
+          scanErrMsg: err.errMsg,
+        })
       },
     })
   },
 
   /**
-   * 自定义扫描框大小
+   * SVG 自定义扫描框
+   *
+   * SDK 不渲染任何扫描框，前端在 WXML 中自由绘制 SVG 覆盖层。
+   * 这里演示狐狸剪影，你可以换成：圆形、星形、品牌 Logo 轮廓……
    */
-  scanCodeCustomFrame: function () {
+  scanCodeSvgFrame: function () {
+    const that = this
+    const foxSVG = `<svg viewBox="0 0 400 400">
+  <defs>
+    <mask id="hole">
+      <rect width="400" height="400" fill="white"/>
+      <path d="M200,80 C120,80 40,140 40,220 C40,300 100,340 160,340
+               L160,280 C160,260 180,250 200,250 C220,250 240,260 240,280
+               L240,340 C300,340 360,300 360,220 C360,140 280,80 200,80 Z
+               M130,180 A15,15 0 1,1 130,179
+               M270,180 A15,15 0 1,1 270,179"
+            fill="black"/>
+      <polygon points="120,140 100,60 160,110" fill="black"/>
+      <polygon points="280,140 300,60 240,110" fill="black"/>
+    </mask>
+  </defs>
+  <rect width="400" height="400" fill="rgba(0,0,0,0.7)" mask="url(#hole)"/>
+  <circle cx="130" cy="180" r="4" fill="#FF6B35"/>
+  <circle cx="270" cy="180" r="4" fill="#FF6B35"/>
+  <path d="M200,80 C120,80 40,140 40,220 C40,300 100,340 160,340
+           L160,280 C160,260 180,250 200,250 C220,250 240,260 240,280
+           L240,340 C300,340 360,300 360,220 C360,140 280,80 200,80 Z"
+        fill="none" stroke="#FF6B35" stroke-width="3" stroke-dasharray="8,4"/>
+</svg>`
+
     wx.scanCode({
-      title: '大扫描框',
-      hint: '扫描区域更大，更容易对准',
-      frameWidthRatio: 0.9,
-      frameAspectRatio: 0.5,
-      frameVerticalOffset: 1.0,
-      cornerColor: '#2196F3',
+      title: 'SVG 自定义框',
+      hint: '狐狸剪影扫描框 🦊',
+      frameShape: 'svg',
+      frameSvg: foxSVG,
       onlyFromCamera: true,
       success(res) {
-        wx.showModal({
-          title: '扫码结果',
-          content: '内容：' + res.result,
-          showCancel: false,
+        console.log('[scanCode-svg] result:', res.result)
+        that.setData({
+          scanStatus: 'ok',
+          scanResultText: res.result,
+          scanType: res.scanType,
+          scanCharSet: res.charSet,
+          scanSource: 'SVG 狐狸框 🦊',
+          scanErrMsg: '',
         })
       },
       fail(err) {
-        console.log('[scanCode-frame] fail:', err.errMsg)
+        that.setData({
+          scanStatus: 'fail',
+          scanErrMsg: err.errMsg,
+        })
       },
     })
   },

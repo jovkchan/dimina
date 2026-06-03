@@ -83,6 +83,9 @@ dependencies {
     // ZXing (Android < 9 备选)
     implementation(libs.zxing.core)
 
+    // SVG 渲染（圆形/自定义扫描框）
+    implementation(libs.androidsvg)
+
     testImplementation(libs.junit)
     testImplementation(libs.org.json)
     androidTestImplementation(libs.androidx.junit)

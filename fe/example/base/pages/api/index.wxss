@@ -1,0 +1,88 @@
+/* ===== scanCode 扫码结果展示 ===== */
+.scan-section {
+  margin-top: 16px;
+  padding: 0 12px;
+}
+.scan-section-title {
+  font-size: 14px;
+  font-weight: bold;
+  color: #333;
+  padding: 8px 0;
+  border-bottom: 1px solid #eee;
+  margin-bottom: 8px;
+}
+.scan-result-card {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 8px;
+  border-left: 3px solid #07c160;
+}
+.scan-result-card.fail {
+  border-left-color: #fa5151;
+}
+.scan-result-label {
+  font-size: 12px;
+  color: #999;
+  margin-bottom: 2px;
+}
+.scan-result-value {
+  font-size: 14px;
+  color: #333;
+  word-break: break-all;
+  margin-bottom: 6px;
+}
+.scan-result-value.code {
+  font-family: monospace;
+  background: #fff;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid #e0e0e0;
+}
+.scan-badge {
+  display: inline-block;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  color: #fff;
+  margin-left: 6px;
+}
+.scan-badge.success {
+  background: #07c160;
+}
+.scan-badge.fail {
+  background: #fa5151;
+}
+.scan-continuous-list {
+  max-height: 200px;
+  overflow-y: auto;
+  background: #fff;
+  border-radius: 6px;
+  border: 1px solid #e0e0e0;
+}
+.scan-continuous-item {
+  display: flex;
+  padding: 6px 10px;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 13px;
+}
+.scan-continuous-item:last-child {
+  border-bottom: none;
+}
+.scan-ci-index {
+  width: 24px;
+  color: #999;
+  flex-shrink: 0;
+}
+.scan-ci-type {
+  width: 60px;
+  color: #07c160;
+  flex-shrink: 0;
+}
+.scan-ci-text {
+  flex: 1;
+  color: #333;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
