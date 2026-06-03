@@ -56,8 +56,10 @@
 
 <button type="primary" bindtap="showActionSheet">showActionSheet</button>
 
-<!-- scanCode 基础示例 -->
+<!-- scanCode 扫码示例 -->
 <button type="primary" bindtap="scanCodeBasic">scanCode 基础</button>
 <button type="primary" bindtap="scanCodeCustomUI">scanCode 自定义UI</button>
 <button type="primary" bindtap="scanCodeOnlyCamera">scanCode 仅相机</button>
 <button type="primary" bindtap="scanCodeWithAlbum">scanCode 含相册</button>
+<button type="primary" bindtap="scanCodeContinuous">scanCode 连续扫码</button>
+<button type="primary" bindtap="scanCodeCustomFrame">scanCode 自定义扫描框</button>

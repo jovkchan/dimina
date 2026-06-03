@@ -11,6 +11,7 @@ import android.graphics.YuvImage
 import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -21,12 +22,27 @@ import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
@@ -35,6 +51,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -64,7 +81,12 @@ class ScanCodeActivity : ComponentActivity() {
 
     private var isProcessing = false
     private var isScanning = true
+    private var continuous = false
     private var canOpenAlbum = false
+    private var previewView: PreviewView? = null
+
+    // 连续扫码结果列表（Compose state）
+    private val scanResults = mutableStateListOf<ScanResultItem>()
 
     // UI 配置（通过 Intent 传入，可被 wx.scanCode 参数覆盖）
     private var config = ScanCodeConfig.DEFAULT
@@ -95,19 +117,42 @@ class ScanCodeActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         canOpenAlbum = intent.getBooleanExtra("canOpenAlbum", false)
+        continuous = intent.getBooleanExtra("continuous", false)
         config = ScanCodeConfig.fromIntent(intent)
         initScanner()
+
+        // 注册返回键处理（兼容 Android 13+）
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (continuous && scanResults.isNotEmpty()) {
+                    finishWithBatchResults()
+                } else {
+                    finishWithCancel()
+                }
+            }
+        })
 
         setContent {
             ScanCodeScreen(
                 config = config,
                 canOpenAlbum = canOpenAlbum,
+                continuous = continuous,
+                scanResults = scanResults,
+                onFinishClick = { finishWithBatchResults() },
                 onAlbumClick = { checkAlbumPermission() },
-                onBackPress = { finishWithCancel() }
+                onBackPress = {
+                    if (continuous && scanResults.isNotEmpty()) {
+                        finishWithBatchResults()
+                    } else {
+                        finishWithCancel()
+                    }
+                },
+                onPreviewViewCreated = { pv ->
+                    previewView = pv
+                    startCamera()
+                },
             )
         }
-
-        startCamera()
     }
 
     private fun initScanner() {
@@ -144,7 +189,7 @@ class ScanCodeActivity : ComponentActivity() {
             val cameraProvider = cameraProviderFuture.get()
             val preview = Preview.Builder().build()
             val imageAnalysis = ImageAnalysis.Builder()
-                .setTargetResolution(android.util.Size(1280, 960))
+                .setTargetResolution(android.util.Size(960, 1280))
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                 .build()
                 .also { analysis ->
@@ -156,6 +201,11 @@ class ScanCodeActivity : ComponentActivity() {
                         }
                     }
                 }
+            // 将 Preview 连接到 PreviewView 的输出 surface
+            previewView?.let { pv ->
+                preview.surfaceProvider = pv.surfaceProvider
+            }
+
             try {
                 cameraProvider.unbindAll()
                 cameraProvider.bindToLifecycle(
@@ -179,6 +229,7 @@ class ScanCodeActivity : ComponentActivity() {
     /**
      * ML Kit 解码 — Android 9+
      */
+    @androidx.annotation.RequiresApi(Build.VERSION_CODES.P)
     private fun processWithMLKit(imageProxy: ImageProxy) {
         @Suppress("DEPRECATION")
         val mediaImage = imageProxy.image
@@ -189,9 +240,15 @@ class ScanCodeActivity : ComponentActivity() {
                     for (barcode in barcodes) {
                         val rawValue = barcode.rawValue
                         if (!rawValue.isNullOrBlank()) {
-                            isScanning = false
                             imageProxy.close()
-                            finishWithResult(rawValue, barcode.formatToScanType())
+                            if (continuous) {
+                                // 连续模式：添加结果到列表，继续扫码
+                                scanResults.add(ScanResultItem(rawValue, barcode.formatToScanType()))
+                                isProcessing = false
+                            } else {
+                                isScanning = false
+                                finishWithResult(rawValue, barcode.formatToScanType())
+                            }
                             return@addOnSuccessListener
                         }
                     }
@@ -225,9 +282,14 @@ class ScanCodeActivity : ComponentActivity() {
             val binaryBitmap = BinaryBitmap(HybridBinarizer(source))
             val result = zxingReader?.decodeWithState(binaryBitmap)
             if (result != null && !result.text.isNullOrBlank()) {
-                isScanning = false
                 imageProxy.close()
-                finishWithResult(result.text, result.barcodeFormat.toScanType())
+                if (continuous) {
+                    scanResults.add(ScanResultItem(result.text, result.barcodeFormat.toScanType()))
+                    isProcessing = false
+                } else {
+                    isScanning = false
+                    finishWithResult(result.text, result.barcodeFormat.toScanType())
+                }
                 return
             }
         } catch (_: Exception) { }
@@ -302,6 +364,29 @@ class ScanCodeActivity : ComponentActivity() {
         finish()
     }
 
+    /**
+     * 连续扫码模式下，将批量结果通过 Intent 返回
+     */
+    private fun finishWithBatchResults() {
+        val resultsArray = org.json.JSONArray()
+        scanResults.forEach { item ->
+            resultsArray.put(org.json.JSONObject().apply {
+                put("result", item.text)
+                put("scanType", item.scanType)
+                put("charSet", "utf-8")
+            })
+        }
+        Intent().apply {
+            putExtra("result", resultsArray.toString())
+            putExtra("scanType", "BATCH")
+            putExtra("charSet", "utf-8")
+            putExtra("errMsg", "scanCode:ok")
+            putExtra("batch", true)
+            setResult(RESULT_OK, this)
+        }
+        finish()
+    }
+
     private fun finishWithCancel() {
         Intent().apply {
             putExtra("errMsg", "scanCode:fail cancel")
@@ -310,8 +395,7 @@ class ScanCodeActivity : ComponentActivity() {
         finish()
     }
 
-    @Deprecated("Deprecated in Java")
-    override fun onBackPressed() = finishWithCancel()
+
 
     override fun onDestroy() {
         super.onDestroy()
@@ -381,101 +465,227 @@ class ScanCodeActivity : ComponentActivity() {
 private fun ScanCodeScreen(
     config: ScanCodeConfig,
     canOpenAlbum: Boolean,
+    continuous: Boolean = false,
+    scanResults: List<ScanResultItem> = emptyList(),
+    onFinishClick: () -> Unit = {},
     onAlbumClick: () -> Unit,
     onBackPress: () -> Unit,
+    onPreviewViewCreated: (PreviewView) -> Unit = {},
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
         // CameraX PreviewView
         AndroidView(
-            factory = { ctx -> PreviewView(ctx) },
+            factory = { ctx ->
+                PreviewView(ctx).also { pv ->
+                    onPreviewViewCreated(pv)
+                }
+            },
             modifier = Modifier.fillMaxSize()
         )
 
-        // 扫描框覆盖层
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val w = size.width
-            val h = size.height
-            val frameW = w * 0.75f
-            val frameH = frameW * 0.7f
-            val left = (w - frameW) / 2f
-            val top = (h - frameH) / 2f * 0.8f
-            val right = left + frameW
-            val bottom = top + frameH
+        // 扫描框覆盖层 + 结果列表
+        Column(modifier = Modifier.fillMaxSize()) {
+            // 上半部分：相机预览 + 扫描框
+            Box(modifier = Modifier.weight(1f)) {
+                // 扫描框 Canvas（与 PreviewView 重叠）
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val w = size.width
+                    val h = size.height
+                    val frameW = w * config.frameWidthRatio.coerceIn(0.2f, 0.95f)
+                    val frameH = frameW * config.frameAspectRatio.coerceIn(0.3f, 1.5f)
+                    val left = (w - frameW) / 2f
+                    val top = (h - frameH) / 2f * config.frameVerticalOffset.coerceIn(0.3f, 1.7f)
+                    val right = left + frameW
+                    val bottom = top + frameH
 
-            // 四周半透明遮罩
-            drawRect(config.maskColor, Offset(0f, 0f), Size(w, top))
-            drawRect(config.maskColor, Offset(0f, bottom), Size(w, h - bottom))
-            drawRect(config.maskColor, Offset(0f, top), Size(left, frameH))
-            drawRect(config.maskColor, Offset(right, top), Size(w - right, frameH))
+                    drawRect(config.maskColor, Offset(0f, 0f), Size(w, top))
+                    drawRect(config.maskColor, Offset(0f, bottom), Size(w, h - bottom))
+                    drawRect(config.maskColor, Offset(0f, top), Size(left, frameH))
+                    drawRect(config.maskColor, Offset(right, top), Size(w - right, frameH))
 
-            // 扫描框
-            drawRoundRect(
-                color = config.frameColor,
-                topLeft = Offset(left, top),
-                size = Size(frameW, frameH),
-                cornerRadius = CornerRadius(8f),
-                style = Stroke(width = 3f)
-            )
+                    drawRoundRect(
+                        color = config.frameColor,
+                        topLeft = Offset(left, top),
+                        size = Size(frameW, frameH),
+                        cornerRadius = CornerRadius(8f),
+                        style = Stroke(width = 3f)
+                    )
 
-            // 四角
-            val cl = 40f
-            drawLine(config.cornerColor, Offset(left, top), Offset(left + cl, top), strokeWidth = 6f)
-            drawLine(config.cornerColor, Offset(left, top), Offset(left, top + cl), strokeWidth = 6f)
-            drawLine(config.cornerColor, Offset(right, top), Offset(right - cl, top), strokeWidth = 6f)
-            drawLine(config.cornerColor, Offset(right, top), Offset(right, top + cl), strokeWidth = 6f)
-            drawLine(config.cornerColor, Offset(left, bottom), Offset(left + cl, bottom), strokeWidth = 6f)
-            drawLine(config.cornerColor, Offset(left, bottom), Offset(left, bottom - cl), strokeWidth = 6f)
-            drawLine(config.cornerColor, Offset(right, bottom), Offset(right - cl, bottom), strokeWidth = 6f)
-            drawLine(config.cornerColor, Offset(right, bottom), Offset(right, bottom - cl), strokeWidth = 6f)
+                    val cl = 40f
+                    drawLine(config.cornerColor, Offset(left, top), Offset(left + cl, top), strokeWidth = 6f)
+                    drawLine(config.cornerColor, Offset(left, top), Offset(left, top + cl), strokeWidth = 6f)
+                    drawLine(config.cornerColor, Offset(right, top), Offset(right - cl, top), strokeWidth = 6f)
+                    drawLine(config.cornerColor, Offset(right, top), Offset(right, top + cl), strokeWidth = 6f)
+                    drawLine(config.cornerColor, Offset(left, bottom), Offset(left + cl, bottom), strokeWidth = 6f)
+                    drawLine(config.cornerColor, Offset(left, bottom), Offset(left, bottom - cl), strokeWidth = 6f)
+                    drawLine(config.cornerColor, Offset(right, bottom), Offset(right - cl, bottom), strokeWidth = 6f)
+                    drawLine(config.cornerColor, Offset(right, bottom), Offset(right, bottom - cl), strokeWidth = 6f)
+                }
+
+                // 顶部标题
+                Text(
+                    text = config.title,
+                    color = config.titleColor,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = 48.dp)
+                )
+
+                // 返回
+                Text(
+                    text = config.backText,
+                    color = config.backTextColor,
+                    fontSize = 16.sp,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(start = 16.dp, top = 48.dp)
+                        .clickable { onBackPress() }
+                )
+            }
+
+            // 下半部分：扫码结果列表
+            if (continuous) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xFF1A1A2E))
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                ) {
+                    // 连续扫码状态提示
+                    val count = scanResults.size
+                    Text(
+                        text = if (count > 0)
+                            config.continuousHint.replace("%d", count.toString())
+                        else config.hint,
+                        color = config.hintColor,
+                        fontSize = 13.sp,
+                    )
+
+                    // 结果列表（最多显示5条，其余可滚动）
+                    if (count > 0) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 160.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            items(scanResults.takeLast(20).reversed()) { item ->
+                                ResultRow(item, config.cornerColor)
+                            }
+                        }
+                    }
+
+                    // 相册选图 + 完成按钮
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        if (canOpenAlbum) {
+                            Text(
+                                text = config.albumText,
+                                color = config.albumTextColor,
+                                fontSize = 14.sp,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable { onAlbumClick() }
+                                    .align(Alignment.CenterVertically)
+                            )
+                        } else {
+                            Spacer(modifier = Modifier.weight(1f))
+                        }
+                        Button(
+                            onClick = onFinishClick,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = config.cornerColor,
+                            ),
+                            shape = RoundedCornerShape(20.dp),
+                            modifier = Modifier.height(36.dp),
+                        ) {
+                            Text(
+                                text = config.finishText.replace("%d", count.toString()),
+                                fontSize = 14.sp,
+                                color = Color.White,
+                            )
+                        }
+                    }
+                }
+            } else {
+                // 非连续模式：底部提示
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xCC1A1A2E))
+                        .padding(vertical = 16.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = config.hint,
+                        color = config.hintColor,
+                        fontSize = 14.sp,
+                    )
+                }
+
+                // 相册选图
+                if (canOpenAlbum) {
+                    Text(
+                        text = config.albumText,
+                        color = config.albumTextColor,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(bottom = 60.dp)
+                            .clickable { onAlbumClick() }
+                    )
+                }
+            }
         }
+    }
+}
 
-        // 顶部标题
-        Text(
-            text = config.title,
-            color = config.titleColor,
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Medium,
+@Composable
+private fun ResultRow(item: ScanResultItem, accentColor: Color) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color(0x33FFFFFF), RoundedCornerShape(6.dp))
+            .padding(horizontal = 10.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        // 序号圆点
+        Box(
             modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 48.dp)
-        )
-
-        // 底部提示
-        Text(
-            text = config.hint,
-            color = config.hintColor,
-            fontSize = 14.sp,
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 120.dp)
-        )
-
-        // 相册选图
-        if (canOpenAlbum) {
+                .background(accentColor, RoundedCornerShape(4.dp))
+                .padding(horizontal = 6.dp, vertical = 2.dp)
+        ) {
             Text(
-                text = config.albumText,
-                color = config.albumTextColor,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Medium,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 60.dp)
-                    .clickable { onAlbumClick() }
+                text = item.scanType.takeWhile { it != '_' }.ifEmpty { "?" },
+                color = Color.White,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
             )
         }
-
-        // 返回
+        Spacer(modifier = Modifier.width(8.dp))
         Text(
-            text = config.backText,
-            color = config.backTextColor,
-            fontSize = 16.sp,
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(start = 16.dp, top = 48.dp)
-                .clickable { onBackPress() }
+            text = item.text,
+            color = Color.White,
+            fontSize = 13.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
         )
     }
 }
+
+/**
+ * 单次扫码结果
+ */
+data class ScanResultItem(val text: String, val scanType: String, val timestamp: Long = System.currentTimeMillis())
 
 /**
  * 扫码界面 UI 配置
@@ -514,6 +724,15 @@ data class ScanCodeConfig(
     val albumTextColor: Color,
     val backText: String,
     val backTextColor: Color,
+    val continuous: Boolean = false,
+    val continuousHint: String = "已识别 %d 个，继续扫码中…",
+    val finishText: String = "完成 (%d)",
+    /** 扫描框宽度占屏幕宽度的比例 0.0~1.0，默认 0.75 */
+    val frameWidthRatio: Float = 0.75f,
+    /** 扫描框高宽比，默认 0.7（即高度为宽度的 70%） */
+    val frameAspectRatio: Float = 0.7f,
+    /** 扫描框垂直位置偏移系数，1.0=正中间，<1.0=偏上，>1.0=偏下，默认 0.8 */
+    val frameVerticalOffset: Float = 0.8f,
 ) {
     companion object {
         /** 默认配置 */
@@ -545,6 +764,9 @@ data class ScanCodeConfig(
                 albumTextColor = parseColor(intent.getStringExtra("cfg_albumTextColor"), DEFAULT.albumTextColor),
                 backText = intent.getStringExtra("cfg_backText") ?: DEFAULT.backText,
                 backTextColor = parseColor(intent.getStringExtra("cfg_backTextColor"), DEFAULT.backTextColor),
+                frameWidthRatio = intent.getFloatExtra("cfg_frameWidthRatio", DEFAULT.frameWidthRatio),
+                frameAspectRatio = intent.getFloatExtra("cfg_frameAspectRatio", DEFAULT.frameAspectRatio),
+                frameVerticalOffset = intent.getFloatExtra("cfg_frameVerticalOffset", DEFAULT.frameVerticalOffset),
             )
         }
 
@@ -560,6 +782,12 @@ data class ScanCodeConfig(
             intent.putExtra("cfg_albumTextColor", config.albumTextColor.toHexString())
             intent.putExtra("cfg_backText", config.backText)
             intent.putExtra("cfg_backTextColor", config.backTextColor.toHexString())
+            intent.putExtra("continuous", config.continuous)
+            if (config.continuousHint.isNotEmpty()) intent.putExtra("cfg_continuousHint", config.continuousHint)
+            if (config.finishText.isNotEmpty()) intent.putExtra("cfg_finishText", config.finishText)
+            intent.putExtra("cfg_frameWidthRatio", config.frameWidthRatio)
+            intent.putExtra("cfg_frameAspectRatio", config.frameAspectRatio)
+            intent.putExtra("cfg_frameVerticalOffset", config.frameVerticalOffset)
         }
 
         /**
@@ -568,10 +796,12 @@ data class ScanCodeConfig(
          */
         fun fromJson(params: JSONObject?): ScanCodeConfig {
             if (params == null) return DEFAULT
+            val continuous = params.optBoolean("continuous", false)
             return ScanCodeConfig(
                 title = params.optString("title", DEFAULT.title),
                 titleColor = parseColor(params.optString("titleColor"), DEFAULT.titleColor),
-                hint = params.optString("hint", DEFAULT.hint),
+                hint = if (continuous) params.optString("hint",
+                    "连续扫码中，识别后自动继续") else params.optString("hint", DEFAULT.hint),
                 hintColor = parseColor(params.optString("hintColor"), DEFAULT.hintColor).copy(alpha = 0.8f),
                 frameColor = parseColor(params.optString("frameColor"), DEFAULT.frameColor),
                 cornerColor = parseColor(params.optString("cornerColor"), DEFAULT.cornerColor),
@@ -580,6 +810,12 @@ data class ScanCodeConfig(
                 albumTextColor = parseColor(params.optString("albumTextColor"), DEFAULT.albumTextColor),
                 backText = params.optString("backText", DEFAULT.backText),
                 backTextColor = parseColor(params.optString("backTextColor"), DEFAULT.backTextColor),
+                continuous = continuous,
+                continuousHint = params.optString("continuousHint", "已识别 %d 个，继续扫码中…"),
+                finishText = params.optString("finishText", "完成 (%d)"),
+                frameWidthRatio = params.optDouble("frameWidthRatio", DEFAULT.frameWidthRatio.toDouble()).toFloat(),
+                frameAspectRatio = params.optDouble("frameAspectRatio", DEFAULT.frameAspectRatio.toDouble()).toFloat(),
+                frameVerticalOffset = params.optDouble("frameVerticalOffset", DEFAULT.frameVerticalOffset.toDouble()).toFloat(),
             )
         }
 

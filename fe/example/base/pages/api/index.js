@@ -509,4 +509,69 @@ Page({
       },
     })
   },
+
+  /**
+   * 连续扫码 — 不自动关闭，结果在扫码框下方实时显示
+   */
+  scanCodeContinuous: function () {
+    wx.scanCode({
+      title: '连续扫码',
+      continuous: true,
+      hint: '扫码后自动继续，无需手动操作',
+      continuousHint: '已识别 %d 个，继续扫码中…',
+      finishText: '完成 (%d)',
+      onlyFromCamera: true,
+      success(res) {
+        if (res.batch) {
+          // 连续扫码返回批量结果
+          const list = res.result
+          let msg = list.map(function (item, i) {
+            return (i + 1) + '. ' + item.result + ' (' + item.scanType + ')'
+          }).join('\n')
+          wx.showModal({
+            title: '连续扫码结果 (' + list.length + ' 个)',
+            content: msg,
+            showCancel: false,
+          })
+        } else {
+          wx.showModal({
+            title: '扫码结果',
+            content: '内容：' + res.result,
+            showCancel: false,
+          })
+        }
+      },
+      fail(err) {
+        console.log('[scanCode-continuous] fail:', err.errMsg)
+        if (err.errMsg !== 'scanCode:fail cancel') {
+          wx.showToast({ title: '扫码中断', icon: 'none' })
+        }
+      },
+    })
+  },
+
+  /**
+   * 自定义扫描框大小
+   */
+  scanCodeCustomFrame: function () {
+    wx.scanCode({
+      title: '大扫描框',
+      hint: '扫描区域更大，更容易对准',
+      frameWidthRatio: 0.9,
+      frameAspectRatio: 0.5,
+      frameVerticalOffset: 1.0,
+      cornerColor: '#2196F3',
+      onlyFromCamera: true,
+      success(res) {
+        wx.showModal({
+          title: '扫码结果',
+          content: '内容：' + res.result,
+          showCancel: false,
+        })
+      },
+      fail(err) {
+        console.log('[scanCode-frame] fail:', err.errMsg)
+      },
+    })
+  },
 });

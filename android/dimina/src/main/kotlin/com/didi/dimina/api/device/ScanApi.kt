@@ -1,8 +1,8 @@
 package com.didi.dimina.api.device
 
 import com.didi.dimina.api.APIResult
-import com.didi.dimina.api.AsyncResult
 import com.didi.dimina.api.BaseApiHandler
+import com.didi.dimina.api.NoneResult
 import com.didi.dimina.ui.container.DiminaActivity
 import com.didi.dimina.ui.container.ScanCodeConfig
 import org.json.JSONObject
@@ -39,18 +39,19 @@ class ScanApi : BaseApiHandler() {
                 val onlyFromCamera = params.optBoolean("onlyFromCamera", false)
                 // 解析 UI 自定义配置（文案、颜色等）
                 val uiConfig = ScanCodeConfig.fromJson(params)
+                val continuous = params.optBoolean("continuous", false)
 
                 activity.handleScanCode(
                     onlyFromCamera = onlyFromCamera,
+                    continuous = continuous,
                     config = uiConfig,
                 ) { success, data ->
                     data.put("errMsg", if (success) "scanCode:ok" else data.optString("errMsg", "scanCode:fail"))
                     responseCallback(data.toString())
                 }
 
-                AsyncResult(JSONObject().apply {
-                    put("errMsg", "$SCAN_CODE:ok")
-                })
+                // 异步结果：扫码结果通过 handleScanCode 的 callback 返回
+                NoneResult()
             }
             else -> super.handleAction(activity, appId, apiName, params, responseCallback)
         }

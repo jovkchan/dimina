@@ -256,8 +256,8 @@ class DiminaActivity : ComponentActivity() {
         contactPicker.handleChooseContact(callback)
     }
 
-    fun handleScanCode(onlyFromCamera: Boolean, config: ScanCodeConfig = ScanCodeConfig.DEFAULT, callback: (Boolean, JSONObject) -> Unit) {
-        scanCodeHandler.handleScanCode(onlyFromCamera = onlyFromCamera, config = config, callback = callback)
+    fun handleScanCode(onlyFromCamera: Boolean, continuous: Boolean = false, config: ScanCodeConfig = ScanCodeConfig.DEFAULT, callback: (Boolean, JSONObject) -> Unit) {
+        scanCodeHandler.handleScanCode(onlyFromCamera = onlyFromCamera, continuous = continuous, config = config, callback = callback)
     }
 
     private fun openSystemGallery(type: MediaType, maxCount: Int) {
